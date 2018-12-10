@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[241]:
+# In[1]:
 
 import cv2
 import numpy as np
@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import os
 
 
-# In[242]:
+# In[2]:
 
 def EnhanceContrast(img, alpha, beta):
     new_img = np.zeros((img.shape[0], img.shape[1]))
@@ -19,22 +19,20 @@ def EnhanceContrast(img, alpha, beta):
     return new_img
 
 
-# In[243]:
+# In[3]:
 
-def DetectEdges(img, idx, IsTemplate=False):
+def DetectEdges(img, IsTemplate=False):
     if IsTemplate :
         canny = cv2.Canny(img, 60, 120)
-        cv2.imwrite("./canny/template_canny.jpg", canny)
     else :
         blur = cv2.GaussianBlur(img,(13,13),0)
         canny = cv2.Canny(blur,40,80)
-        cv2.imwrite("./canny/raw_canny"+str(idx)+".jpg", canny)
     return canny
 
 
-# In[244]:
+# In[4]:
 
-def MatchTemplate(img, img_idx, template, methods):
+def MatchTemplate(img, template, methods):
     img_w, img_h = img.shape[::-1]
     tmp_w, tmp_h = template.shape[::-1]
     seed = img.copy()
@@ -67,7 +65,6 @@ def MatchTemplate(img, img_idx, template, methods):
 
             candidate_copy = candidate.copy()
             cv2.rectangle(candidate_copy, top_left, bottom_right, 255, 2)
-            # cv2.imwrite("./steps/socket"+str(img_idx)+"/scale_"+str(scales[candidates.index(candidate)])+".jpg", candidate_copy)
 
             scores.append(max_val)
             top_lefts.append(top_left)
@@ -79,9 +76,9 @@ def MatchTemplate(img, img_idx, template, methods):
     return scale, top_left
 
 
-# In[245]:
+# In[5]:
 
-def SuperimposeMask(raw_l_img, l_img_idx, s_img, top_left, scale): 
+def SuperimposeMask(raw_l_img, s_img, top_left, scale): 
     
     raw_l_img_h, raw_l_img_w, raw_l_img_c = raw_l_img.shape
     l_img = cv2.resize(raw_l_img, (int(scale*raw_l_img_w), int(scale*raw_l_img_h)), interpolation=cv2.INTER_CUBIC)
@@ -98,13 +95,11 @@ def SuperimposeMask(raw_l_img, l_img_idx, s_img, top_left, scale):
     for c in range(0, 3):
         l_img[y1:y2, x1:x2, c] = (alpha_s * s_img[:, :, c] +
                                   alpha_l * l_img[y1:y2, x1:x2, c])
-    
-    #l_img_h, l_img_w, l_img_c = l_img.shape
-    #l_img = cv2.resize(l_img, (int(l_img_w/scale), int(l_img_h/scale)), interpolation=cv2.INTER_CUBIC)
+
     return l_img
 
 
-# In[246]:
+# In[6]:
 
 ''' Contour Index
 0: lower right, outer
@@ -147,7 +142,7 @@ def ComputerCenterInTemplate(img_original):
     return (cx, cy)
 
 
-# In[247]:
+# In[7]:
 
 def ComputeCenterInImg(scale, top_left, tmp_c):
     cx_scaled = top_left[0] + tmp_c[0]
@@ -157,7 +152,7 @@ def ComputeCenterInImg(scale, top_left, tmp_c):
     return (cx_scaled, cy_scaled)
 
 
-# In[248]:
+# In[8]:
 
 os.chdir("/home/jia/ev_charge/img2/")
 
@@ -168,7 +163,7 @@ template_thick = cv2.imread("./masks/mask_no_perimeter_thick.png", -1)
 # compute template center
 tmp_center = ComputerCenterInTemplate(template)
 
-img_idx_list = list(range(0, 6))
+img_idx_list = list(range(0, 2))
 
 for img_idx in img_idx_list:
 
@@ -178,21 +173,21 @@ for img_idx in img_idx_list:
     
     # edge detection
     img_canny = DetectEdges(img_gray, img_idx)
-    template_canny = DetectEdges(template, img_idx, IsTemplate=True)
+    template_canny = DetectEdges(template, IsTemplate=True)
+    cv2.imwrite("./canny/raw_canny"+str(img_idx)+".jpg", img_canny)
+    cv2.imwrite("./canny/template_canny.jpg", template_canny)
 
     # matching
-    scale, top_left = MatchTemplate(img_canny, img_idx, template_canny, ["cv2.TM_CCOEFF"])
+    scale, top_left = MatchTemplate(img_canny, template_canny, ["cv2.TM_CCOEFF"])
 
     # superimpose mask
-    demo = SuperimposeMask(img, img_idx, template_thick, top_left, scale)
+    demo = SuperimposeMask(img, template_thick, top_left, scale)
     
     # compute socket center
     socket_center = ComputeCenterInImg(scale, top_left, tmp_center)
     cv2.circle(demo, socket_center, 2, (0,255,0), thickness=10)
     
     cv2.imwrite("./results/demo"+str(img_idx)+".jpg", demo)
-    # plt.imshow(cv2.cvtColor(demo, cv2.COLOR_BGR2RGB))
-    # plt.show()
 
 
 # In[ ]:
