@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[304]:
 
 import cv2
 import numpy as np
@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import os
 
 
-# In[2]:
+# In[305]:
 
 def EnhanceContrast(img, alpha, beta):
     new_img = np.zeros((img.shape[0], img.shape[1]))
@@ -19,7 +19,7 @@ def EnhanceContrast(img, alpha, beta):
     return new_img
 
 
-# In[3]:
+# In[306]:
 
 def DetectEdges(img, IsTemplate=False):
     if IsTemplate :
@@ -30,14 +30,14 @@ def DetectEdges(img, IsTemplate=False):
     return canny
 
 
-# In[4]:
+# In[307]:
 
 def MatchTemplate(img, template, methods):
     img_w, img_h = img.shape[::-1]
     tmp_w, tmp_h = template.shape[::-1]
     seed = img.copy()
     candidates = []
-    scales = np.linspace(1, 3, 20)
+    scales = np.linspace(1, 4, 20)
     top_lefts = []
     bottom_rights = []
     scores = []
@@ -76,7 +76,7 @@ def MatchTemplate(img, template, methods):
     return scale, top_left
 
 
-# In[5]:
+# In[308]:
 
 def SuperimposeMask(raw_l_img, s_img, top_left, scale): 
     
@@ -99,7 +99,7 @@ def SuperimposeMask(raw_l_img, s_img, top_left, scale):
     return l_img
 
 
-# In[6]:
+# In[309]:
 
 ''' Contour Index
 0: lower right, outer
@@ -142,7 +142,7 @@ def ComputerCenterInTemplate(img_original):
     return (cx, cy)
 
 
-# In[7]:
+# In[310]:
 
 def ComputeCenterInImg(scale, top_left, tmp_c):
     cx_scaled = top_left[0] + tmp_c[0]
@@ -152,42 +152,104 @@ def ComputeCenterInImg(scale, top_left, tmp_c):
     return (cx_scaled, cy_scaled)
 
 
-# In[8]:
+# In[311]:
+
+def ComputeWidthReference():
+    img = cv2.imread("./sockets/socket0.jpg")
+    h, w, c = img.shape
+    return w
+
+
+# In[312]:
 
 os.chdir("/home/jia/ev_charge/img2/")
 
+debug = True
+
 # read template
-template = cv2.imread("./masks/mask_no_perimeter.png")
-template_thick = cv2.imread("./masks/mask_no_perimeter_thick.png", -1)
+template = cv2.imread("./masks/mask_thin.png")
+template_thick = cv2.imread("./masks/mask_thick.png", -1)
 
 # compute template center
 tmp_center = ComputerCenterInTemplate(template)
 
-img_idx_list = list(range(0, 2))
+# set standard width
+standard_w = 400
+
+# set dataset
+img_idx_list = list(range(0, 53))
+
 
 for img_idx in img_idx_list:
+    print "processing socket"+img_idx
 
     # read image
     img = cv2.imread("./sockets/socket"+str(img_idx)+".jpg")
     img_gray = cv2.imread("./sockets/socket"+str(img_idx)+".jpg", 0)
     
+    # nomarlize img width
+    shrinkage = standard_w / float(img.shape[1])
+    img = cv2.resize(img, 
+                     (int(img.shape[1]*shrinkage), int(img.shape[0]*shrinkage)), 
+                     interpolation=cv2.INTER_CUBIC)    
+    img_gray = cv2.resize(img_gray, 
+                     (int(img_gray.shape[1]*shrinkage), int(img_gray.shape[0]*shrinkage)), 
+                     interpolation=cv2.INTER_CUBIC)
+    if debug:
+        print "shrinkage: ", shrinkage
+        print "shape after normalization", img.shape, shrinkage
+    
+        
     # edge detection
     img_canny = DetectEdges(img_gray, img_idx)
     template_canny = DetectEdges(template, IsTemplate=True)
-    cv2.imwrite("./canny/raw_canny"+str(img_idx)+".jpg", img_canny)
-    cv2.imwrite("./canny/template_canny.jpg", template_canny)
+    if debug:
+        cv2.imwrite("./canny/raw_canny"+str(img_idx)+".jpg", img_canny)
+        cv2.imwrite("./canny/template_canny.jpg", template_canny)
+        print "edge detection finished..."
 
-    # matching
+    # match
     scale, top_left = MatchTemplate(img_canny, template_canny, ["cv2.TM_CCOEFF"])
+    if debug:
+        print "matching finished..."
 
     # superimpose mask
     demo = SuperimposeMask(img, template_thick, top_left, scale)
+    if debug:
+        print "superimposing mask finished..."
     
     # compute socket center
     socket_center = ComputeCenterInImg(scale, top_left, tmp_center)
-    cv2.circle(demo, socket_center, 2, (0,255,0), thickness=10)
+    if debug:
+        print "center computation finished..."
     
+    # draw center
+    cv2.circle(demo, socket_center, 2, (0,255,0), thickness=10)
     cv2.imwrite("./results/demo"+str(img_idx)+".jpg", demo)
+    if debug:
+        print "result saved..."
+        print ""
+
+
+# In[ ]:
+
+
+'''
+# read template
+template = cv2.imread("./masks/mask_no_perimeter.png", -1)
+template_thick = cv2.imread("./masks/mask_no_perimeter_thick.png", -1)
+
+template = cv2.resize(template, 
+                      (int(template.shape[1]*0.5), int(template.shape[0]*0.5)), 
+                      interpolation=cv2.INTER_CUBIC)
+
+template_thick = cv2.resize(template_thick, 
+                      (int(template_thick.shape[1]*0.5), int(template_thick.shape[0]*0.5)), 
+                      interpolation=cv2.INTER_CUBIC)
+
+cv2.imwrite("./masks/mask_thin.png", template)
+cv2.imwrite("./masks/mask_thick.png", template_thick)
+'''
 
 
 # In[ ]:
